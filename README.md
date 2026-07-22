@@ -114,6 +114,9 @@ The `enums` package contains Java enums that must match the MySQL `ENUM` values 
 - `AreaType`
 - `RankType`
 - `AssignmentType`
+- `RouteType`
+- `VerificationStatus`
+- `FareType`
 
 ### Database entities
 
@@ -122,15 +125,20 @@ The `entity` package contains JPA mappings for the core transport data model:
 - `Area` maps to `areas`
 - `TaxiRank` maps to `taxi_ranks`
 - `AreaRankAssignment` maps to `area_rank_assignments`
+- `Route` maps to `routes`
+- `Fare` maps to `fares`
 
 Important mapping rules:
 
 - MySQL `ENUM` columns use Java enums with `EnumType.STRING`.
 - MySQL `decimal(10,7)` latitude and longitude columns use `BigDecimal`, not `double`.
+- MySQL `decimal(10,2)` fare amounts use `BigDecimal`, not `double`.
+- MySQL `date` columns use `LocalDate`.
 - MySQL `datetime` columns use `LocalDateTime`.
 - MySQL `tinyint(1)` style flags use `Boolean`.
 - Area and rank relationships use `@ManyToOne(fetch = FetchType.LAZY)`.
-- Cascade delete/update is not used on assignment relationships.
+- Route and fare relationships use `@ManyToOne(fetch = FetchType.LAZY)`.
+- Cascade delete/update is not used on assignment, route, or fare relationships.
 - Reverse collections are intentionally not added yet to avoid recursive loading.
 
 ### Repositories
@@ -140,6 +148,8 @@ The `repository` package contains Spring Data JPA repositories for CRUD, paginat
 - `AreaRepository`
 - `TaxiRankRepository`
 - `AreaRankAssignmentRepository`
+- `RouteRepository`
+- `FareRepository`
 
 Repository conventions:
 
@@ -148,7 +158,10 @@ Repository conventions:
 - Duplicate checks use `existsBy...`.
 - `AreaRepository` has separate duplicate checks for root areas where `parent_area_id` is `NULL` and child areas with a parent ID.
 - Assignment lookups are ordered by `priority` for later rank resolution.
-- `@EntityGraph` is used where related `Area` or `TaxiRank` data is expected with the result.
+- Route lookups use `@EntityGraph` to load starting area, destination area, departure rank, and arrival rank.
+- Fare lookups use `@EntityGraph` to load route summaries without making route relationships eager.
+- `FareRepository` supports fare history, current fare lookup by date, and same-type fare-period overlap checks.
+- `@EntityGraph` is used where related `Area`, `TaxiRank`, `Route`, or `Fare` data is expected with the result.
 
 ### Area DTOs
 
@@ -168,12 +181,18 @@ The `mapper` package contains DTO/entity mapping components:
 - `AreaMapper`
 - `TaxiRankMapper`
 - `AreaRankAssignmentMapper`
+- `RouteMapper`
+- `FareMapper`
 
 `AreaMapper` normalizes request text, maps create/update Area requests into entities, and maps Area entities into API response DTOs with a parent-area summary.
 
 `TaxiRankMapper` maps taxi-rank create/update requests, normalizes optional text, handles default boolean values, tracks local verification timestamps, and returns rank responses with located-area summaries.
 
 `AreaRankAssignmentMapper` maps assignment create/update requests, normalizes notes and reasons, tracks local verification timestamps, and returns assignment responses with area and taxi-rank summaries.
+
+`RouteMapper` maps route create/update requests, normalizes route codes to uppercase, normalizes optional route instructions, tracks local verification timestamps, and returns route responses with area and taxi-rank summaries.
+
+`FareMapper` maps fare create/update requests, normalizes currency codes to uppercase, defaults blank currency to `ZAR`, tracks local verification timestamps, and returns fare responses with compact route summaries.
 
 ### Area service
 
@@ -315,6 +334,244 @@ Business rules enforced:
 
 List requests support optional `areaId`, `taxiRankId`, `assignmentType`, `locallyVerified`, `page`, `size`, `sortBy`, and `sortDirection` query parameters.
 
+## Phase 3: Route and Fare Management
+
+Phase 3 introduces route and fare management for the Mzansi Connect backend.
+
+### Features
+
+- Create, retrieve, update and deactivate taxi routes
+- Create, retrieve, update and deactivate route fares
+- Search routes by route code, route name and taxi sign
+- Filter routes by areas, taxi ranks, route type and verification status
+- Filter routes by weekday and weekend operation
+- Pagination and sorting for route and fare endpoints
+- Route code duplicate prevention
+- Fare history for each route
+- Current fare lookup by route, date and fare type
+- Fare-date overlap prevention
+- Local verification tracking
+- Soft deletion for routes and fares
+
+### Route Endpoints
+
+| Method | Endpoint                       | Description              |
+| ------ | ------------------------------ | ------------------------ |
+| POST   | `/api/routes`                  | Create a route           |
+| GET    | `/api/routes`                  | Retrieve active routes   |
+| GET    | `/api/routes/{id}`             | Retrieve a route by ID   |
+| GET    | `/api/routes/code/{routeCode}` | Retrieve a route by code |
+| PUT    | `/api/routes/{id}`             | Update a route           |
+| DELETE | `/api/routes/{id}`             | Deactivate a route       |
+
+### Route Filtering
+
+The route list endpoint supports the following parameters:
+
+```text
+search
+startingAreaId
+destinationAreaId
+departureRankId
+arrivalRankId
+routeType
+verificationStatus
+locallyVerified
+operatesWeekdays
+operatesWeekends
+page
+size
+sortBy
+sortDirection
+```
+
+Example:
+
+```http
+GET /api/routes?routeType=DIRECT&operatesWeekdays=true&page=0&size=10
+```
+
+### Fare Endpoints
+
+| Method | Endpoint                             | Description                        |
+| ------ | ------------------------------------ | ---------------------------------- |
+| POST   | `/api/fares`                         | Create a fare                      |
+| GET    | `/api/fares`                         | Retrieve active fares              |
+| GET    | `/api/fares/{id}`                    | Retrieve a fare by ID              |
+| GET    | `/api/fares/current`                 | Retrieve currently effective fares |
+| GET    | `/api/fares/route/{routeId}/history` | Retrieve route fare history        |
+| PUT    | `/api/fares/{id}`                    | Update a fare                      |
+| DELETE | `/api/fares/{id}`                    | Deactivate a fare                  |
+
+### Fare Filtering
+
+The fare list endpoint supports:
+
+```text
+routeId
+fareType
+currency
+locallyVerified
+effectiveOn
+page
+size
+sortBy
+sortDirection
+```
+
+Current fare example:
+
+```http
+GET /api/fares/current?routeId=1&fareType=STANDARD&onDate=2026-07-22
+```
+
+A fare is considered current when:
+
+```text
+effectiveFrom <= selected date
+effectiveTo is null or effectiveTo >= selected date
+fare is active
+route is active
+```
+
+The system prevents overlapping active fare periods of the same fare type for the same route.
+
+### Supported Route Types
+
+```text
+DIRECT
+CONNECTING
+```
+
+### Supported Fare Types
+
+```text
+STANDARD
+PEAK
+WEEKEND
+HOLIDAY
+```
+
+### Supported Verification Statuses
+
+```text
+UNVERIFIED
+COMMUNITY_VERIFIED
+RANK_VERIFIED
+ADMIN_VERIFIED
+```
+
+### Phase 3 Testing
+
+Phase 3 includes service tests for:
+
+- Valid route creation
+- Route-code normalisation
+- Duplicate route codes
+- Invalid route origins and destinations
+- Invalid departure and arrival ranks
+- Route operating-day validation
+- Route verification validation
+- Route soft deletion
+- Fare creation
+- Default ZAR currency
+- Fare date validation
+- Fare-period overlap prevention
+- Current fare retrieval
+- Fare soft deletion
+
+### Route DTOs
+
+The `dto.route` package contains request and response DTOs for Route APIs:
+
+- `RouteCreateRequest`
+- `RouteUpdateRequest`
+- `RouteSummaryResponse`
+- `RouteResponse`
+
+Create and update requests include validation for required area IDs, rank IDs, route type, operating days, verification status, duration ranges, waiting-time ranges, and text length limits.
+
+### Route Service
+
+`RouteService` and `RouteServiceImpl` provide Route business logic:
+
+- Create active routes.
+- Retrieve active routes by ID.
+- Retrieve active routes by route code.
+- List active routes with search, area, rank, route type, verification status, local-verification, weekday/weekend operation, pagination, and safe sorting filters.
+- Update route details and relationships.
+- Soft-deactivate routes.
+
+Business rules enforced:
+
+- Route codes are normalized to uppercase.
+- Duplicate route codes are blocked.
+- Starting area and destination area must be different.
+- Departure rank and arrival rank must be different.
+- A route must operate on weekdays, weekends, or both.
+- A locally verified route cannot have `UNVERIFIED` verification status.
+- Routes with active fares cannot be deactivated.
+
+### Route API
+
+`RouteController` exposes route endpoints under `/api/routes`:
+
+- `POST /api/routes`
+- `GET /api/routes`
+- `GET /api/routes/{id}`
+- `GET /api/routes/code/{routeCode}`
+- `PUT /api/routes/{id}`
+- `DELETE /api/routes/{id}`
+
+List requests support optional `search`, `startingAreaId`, `destinationAreaId`, `departureRankId`, `arrivalRankId`, `routeType`, `verificationStatus`, `locallyVerified`, `operatesWeekdays`, `operatesWeekends`, `page`, `size`, `sortBy`, and `sortDirection` query parameters.
+
+### Fare DTOs
+
+The `dto.fare` package contains request and response DTOs for Fare APIs:
+
+- `FareCreateRequest`
+- `FareUpdateRequest`
+- `FareResponse`
+
+Create and update requests include validation for route ID, fare amount, currency format, fare type, effective dates, local verification, and verification notes.
+
+### Fare Service
+
+`FareService` and `FareServiceImpl` provide Fare business logic:
+
+- Create active fare records.
+- Retrieve active fares by ID.
+- List active fares with route, fare type, currency, local-verification, effective-date, pagination, and safe sorting filters.
+- Retrieve fare history for a route.
+- Retrieve current fares for a route, optionally by fare type and date.
+- Update fare details and effective periods.
+- Soft-deactivate fares.
+
+Business rules enforced:
+
+- Fare amounts use `BigDecimal`.
+- Blank create-request currency defaults to `ZAR`.
+- Currency values are normalized to uppercase.
+- `effectiveTo` cannot be before `effectiveFrom`.
+- Active fare periods cannot overlap for the same route and fare type.
+- Fare lookups only return fares whose route is still active.
+
+### Fare API
+
+`FareController` exposes fare endpoints under `/api/fares`:
+
+- `POST /api/fares`
+- `GET /api/fares`
+- `GET /api/fares/current`
+- `GET /api/fares/route/{routeId}/history`
+- `GET /api/fares/{id}`
+- `PUT /api/fares/{id}`
+- `DELETE /api/fares/{id}`
+
+List requests support optional `routeId`, `fareType`, `currency`, `locallyVerified`, `effectiveOn`, `page`, `size`, `sortBy`, and `sortDirection` query parameters.
+
+Current fare requests support `routeId`, optional `fareType`, and optional `onDate`. If `onDate` is omitted, the service uses the current date.
+
 ### Verification
 
 Compile check:
@@ -365,6 +622,18 @@ Run the taxi-rank resolution service unit tests:
 ./mvnw -Dtest=TaxiRankResolutionServiceTest test
 ```
 
+Run the route service unit tests:
+
+```bash
+./mvnw -Dtest=RouteServiceImplTest test
+```
+
+Run the fare service unit tests:
+
+```bash
+./mvnw -Dtest=FareServiceImplTest test
+```
+
 Run the area controller validation MVC test:
 
 ```bash
@@ -380,5 +649,5 @@ Run the full focused test suite:
 Current focused suite status:
 
 ```text
-30 tests run, 0 failures, 0 errors
+46 tests run, 0 failures, 0 errors
 ```
