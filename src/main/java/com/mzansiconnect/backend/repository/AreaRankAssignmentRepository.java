@@ -72,7 +72,18 @@ public interface AreaRankAssignmentRepository
             Long taxiRankId
     );
 
+    boolean existsByArea_IdAndTaxiRank_IdAndActiveTrue(
+            Long areaId,
+            Long taxiRankId
+    );
+
     boolean existsByArea_IdAndTaxiRank_IdAndIdNot(
+            Long areaId,
+            Long taxiRankId,
+            Long excludedId
+    );
+
+    boolean existsByArea_IdAndTaxiRank_IdAndIdNotAndActiveTrue(
             Long areaId,
             Long taxiRankId,
             Long excludedId
