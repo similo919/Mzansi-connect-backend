@@ -4,6 +4,7 @@ import com.mzansiconnect.backend.config.SecurityConfig;
 import com.mzansiconnect.backend.exception.DatabaseConnectionException;
 import com.mzansiconnect.backend.exception.GlobalExceptionHandler;
 import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAccessDeniedHandler;
 import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
 import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.HealthService;
@@ -44,6 +45,9 @@ class HealthControllerTest {
 
     @MockitoBean
     private JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+    @MockitoBean
+    private JwtAccessDeniedHandler accessDeniedHandler;
 
     @MockitoBean
     private PasswordEncoder passwordEncoder;

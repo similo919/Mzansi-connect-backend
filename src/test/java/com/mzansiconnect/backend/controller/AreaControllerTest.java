@@ -6,6 +6,7 @@ import com.mzansiconnect.backend.dto.area.AreaUpdateRequest;
 import com.mzansiconnect.backend.enums.AreaType;
 import com.mzansiconnect.backend.exception.GlobalExceptionHandler;
 import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAccessDeniedHandler;
 import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
 import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.AreaService;
@@ -59,10 +60,13 @@ class AreaControllerTest {
     private JwtAuthenticationEntryPoint authenticationEntryPoint;
 
     @MockitoBean
+    private JwtAccessDeniedHandler accessDeniedHandler;
+
+    @MockitoBean
     private PasswordEncoder passwordEncoder;
 
     @Test
-    @WithMockUser
+    @WithMockUser(authorities = "ROLE_ADMIN")
     void updateAreaShouldReturnSuccess()
             throws Exception {
 
@@ -111,7 +115,7 @@ class AreaControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(authorities = "ROLE_ADMIN")
     void updateAreaWithNonNumericIdShouldReturnBadRequest()
             throws Exception {
 
@@ -134,7 +138,7 @@ class AreaControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(authorities = "ROLE_ADMIN")
     void updateAreaWithNonPositiveIdShouldReturnBadRequest()
             throws Exception {
 

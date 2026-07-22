@@ -1,11 +1,13 @@
 package com.mzansiconnect.backend.config;
 
 import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAccessDeniedHandler;
 import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
 import com.mzansiconnect.backend.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -31,6 +33,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint
             authenticationEntryPoint;
+
+    private final JwtAccessDeniedHandler
+            accessDeniedHandler;
 
     @Bean
     public DaoAuthenticationProvider
@@ -79,6 +84,9 @@ public class SecurityConfig {
                                         .authenticationEntryPoint(
                                                 authenticationEntryPoint
                                         )
+                                        .accessDeniedHandler(
+                                                accessDeniedHandler
+                                        )
                 )
 
                 .authenticationProvider(
@@ -88,6 +96,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(
                         authorization ->
                                 authorization
+
+                                        .requestMatchers(
+                                                HttpMethod.OPTIONS,
+                                                "/**"
+                                        )
+                                        .permitAll()
+
                                         .requestMatchers(
                                                 "/api/auth/register",
                                                 "/api/auth/login",
@@ -96,8 +111,55 @@ public class SecurityConfig {
                                         )
                                         .permitAll()
 
-                                        .anyRequest()
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/auth/me"
+                                        )
                                         .authenticated()
+
+                                        .requestMatchers(
+                                                "/api/area-rank-assignments/**"
+                                        )
+                                        .hasAuthority("ROLE_ADMIN")
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/areas/**",
+                                                "/api/taxi-ranks/**",
+                                                "/api/routes/**",
+                                                "/api/fares/**"
+                                        )
+                                        .hasAuthority("ROLE_ADMIN")
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/areas/**",
+                                                "/api/taxi-ranks/**",
+                                                "/api/routes/**",
+                                                "/api/fares/**"
+                                        )
+                                        .hasAuthority("ROLE_ADMIN")
+
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/areas/**",
+                                                "/api/taxi-ranks/**",
+                                                "/api/routes/**",
+                                                "/api/fares/**"
+                                        )
+                                        .hasAuthority("ROLE_ADMIN")
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/areas/**",
+                                                "/api/taxi-ranks/**",
+                                                "/api/routes/**",
+                                                "/api/fares/**"
+                                        )
+                                        .authenticated()
+
+                                        .anyRequest()
+                                        .denyAll()
                 )
 
                 .addFilterBefore(
