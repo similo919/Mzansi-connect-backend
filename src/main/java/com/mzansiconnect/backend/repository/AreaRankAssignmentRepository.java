@@ -77,4 +77,8 @@ public interface AreaRankAssignmentRepository
             Long taxiRankId,
             Long excludedId
     );
+
+    boolean existsByTaxiRank_IdAndActiveTrue(
+            Long taxiRankId
+    );
 }
