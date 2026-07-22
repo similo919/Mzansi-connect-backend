@@ -5,12 +5,17 @@ import com.mzansiconnect.backend.dto.area.AreaResponse;
 import com.mzansiconnect.backend.dto.area.AreaUpdateRequest;
 import com.mzansiconnect.backend.enums.AreaType;
 import com.mzansiconnect.backend.exception.GlobalExceptionHandler;
+import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
+import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.AreaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -44,7 +49,20 @@ class AreaControllerTest {
     @MockitoBean
     private AreaService areaService;
 
+    @MockitoBean
+    private CustomUserDetailsService userDetailsService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+    @MockitoBean
+    private PasswordEncoder passwordEncoder;
+
     @Test
+    @WithMockUser
     void updateAreaShouldReturnSuccess()
             throws Exception {
 
@@ -93,6 +111,7 @@ class AreaControllerTest {
     }
 
     @Test
+    @WithMockUser
     void updateAreaWithNonNumericIdShouldReturnBadRequest()
             throws Exception {
 
@@ -115,6 +134,7 @@ class AreaControllerTest {
     }
 
     @Test
+    @WithMockUser
     void updateAreaWithNonPositiveIdShouldReturnBadRequest()
             throws Exception {
 

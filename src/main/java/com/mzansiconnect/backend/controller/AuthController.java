@@ -1,5 +1,7 @@
 package com.mzansiconnect.backend.controller;
 
+import com.mzansiconnect.backend.dto.auth.LoginRequest;
+import com.mzansiconnect.backend.dto.auth.LoginResponse;
 import com.mzansiconnect.backend.dto.auth.RegisterRequest;
 import com.mzansiconnect.backend.dto.auth.UserResponse;
 import com.mzansiconnect.backend.response.ApiResponse;
@@ -8,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,16 +31,43 @@ public class AuthController {
             @RequestBody
             RegisterRequest request
     ) {
-        UserResponse response =
-                authService.register(request);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(
                         ApiResponse.success(
                                 "User registered successfully",
-                                response
+                                authService.register(request)
                         )
                 );
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>>
+    login(
+            @Valid
+            @RequestBody
+            LoginRequest request
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Login successful",
+                        authService.login(request)
+                )
+        );
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>>
+    getCurrentUser(
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Authenticated user retrieved successfully",
+                        authService.getCurrentUser(
+                                authentication.getName()
+                        )
+                )
+        );
     }
 }

@@ -2,12 +2,17 @@ package com.mzansiconnect.backend.controller;
 
 import com.mzansiconnect.backend.config.SecurityConfig;
 import com.mzansiconnect.backend.exception.GlobalExceptionHandler;
+import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
+import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.AreaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,7 +33,20 @@ class AreaControllerValidationTest {
     @MockitoBean
     private AreaService areaService;
 
+    @MockitoBean
+    private CustomUserDetailsService userDetailsService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+    @MockitoBean
+    private PasswordEncoder passwordEncoder;
+
     @Test
+    @WithMockUser
     void invalidAreaRequestShouldReturnFieldErrors()
             throws Exception {
 

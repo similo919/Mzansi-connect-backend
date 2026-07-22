@@ -1,17 +1,26 @@
 package com.mzansiconnect.backend.service.impl;
 
+import com.mzansiconnect.backend.dto.auth.LoginRequest;
+import com.mzansiconnect.backend.dto.auth.LoginResponse;
 import com.mzansiconnect.backend.dto.auth.RegisterRequest;
 import com.mzansiconnect.backend.dto.auth.UserResponse;
 import com.mzansiconnect.backend.entity.Role;
 import com.mzansiconnect.backend.entity.User;
 import com.mzansiconnect.backend.exception.BusinessValidationException;
 import com.mzansiconnect.backend.exception.DuplicateResourceException;
+import com.mzansiconnect.backend.exception.InvalidCredentialsException;
 import com.mzansiconnect.backend.mapper.UserMapper;
 import com.mzansiconnect.backend.repository.RoleRepository;
 import com.mzansiconnect.backend.repository.UserRepository;
+import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +39,9 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final AuthenticationManager
+            authenticationManager;
+    private final JwtService jwtService;
 
     @Override
     public UserResponse register(
@@ -93,6 +105,72 @@ public class AuthServiceImpl implements AuthService {
                     "An account already exists with this email address"
             );
         }
+    }
+
+    @Override
+    public LoginResponse login(
+            LoginRequest request
+    ) {
+        String normalizedEmail =
+                normalizeEmail(request.getEmail());
+
+        Authentication authentication;
+
+        try {
+            authentication =
+                    authenticationManager.authenticate(
+                            UsernamePasswordAuthenticationToken
+                                    .unauthenticated(
+                                            normalizedEmail,
+                                            request.getPassword()
+                                    )
+                    );
+        } catch (AuthenticationException exception) {
+            throw new InvalidCredentialsException(
+                    "Invalid email or password"
+            );
+        }
+
+        UserDetails userDetails =
+                (UserDetails) authentication.getPrincipal();
+
+        User user = userRepository
+                .findByEmailIgnoreCaseAndEnabledTrue(
+                        normalizedEmail
+                )
+                .orElseThrow(
+                        () -> new InvalidCredentialsException(
+                                "Invalid email or password"
+                        )
+                );
+
+        String accessToken =
+                jwtService.generateToken(userDetails);
+
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .tokenType("Bearer")
+                .expiresInSeconds(
+                        jwtService.getExpirationSeconds()
+                )
+                .user(userMapper.toResponse(user))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse getCurrentUser(String email) {
+        User user = userRepository
+                .findByEmailIgnoreCaseAndEnabledTrue(
+                        normalizeEmail(email)
+                )
+                .orElseThrow(
+                        () -> new InvalidCredentialsException(
+                                "Authenticated user was not found"
+                        )
+                );
+
+        return userMapper.toResponse(user);
     }
 
     private void validatePasswordsMatch(

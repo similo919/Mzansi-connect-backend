@@ -3,11 +3,15 @@ package com.mzansiconnect.backend.controller;
 import com.mzansiconnect.backend.config.SecurityConfig;
 import com.mzansiconnect.backend.exception.DatabaseConnectionException;
 import com.mzansiconnect.backend.exception.GlobalExceptionHandler;
+import com.mzansiconnect.backend.security.CustomUserDetailsService;
+import com.mzansiconnect.backend.security.JwtAuthenticationEntryPoint;
+import com.mzansiconnect.backend.security.JwtService;
 import com.mzansiconnect.backend.service.HealthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,6 +35,18 @@ class HealthControllerTest {
 
     @MockitoBean
     private HealthService healthService;
+
+    @MockitoBean
+    private CustomUserDetailsService userDetailsService;
+
+    @MockitoBean
+    private JwtService jwtService;
+
+    @MockitoBean
+    private JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+    @MockitoBean
+    private PasswordEncoder passwordEncoder;
 
     @Test
     void applicationHealthShouldReturnSuccess()
