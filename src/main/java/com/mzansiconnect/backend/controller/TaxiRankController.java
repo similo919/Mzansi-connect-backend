@@ -1,10 +1,12 @@
 package com.mzansiconnect.backend.controller;
 
 import com.mzansiconnect.backend.dto.rank.TaxiRankCreateRequest;
+import com.mzansiconnect.backend.dto.rank.ResolvedTaxiRankResponse;
 import com.mzansiconnect.backend.dto.rank.TaxiRankResponse;
 import com.mzansiconnect.backend.dto.rank.TaxiRankUpdateRequest;
 import com.mzansiconnect.backend.enums.RankType;
 import com.mzansiconnect.backend.response.ApiResponse;
+import com.mzansiconnect.backend.service.TaxiRankResolutionService;
 import com.mzansiconnect.backend.service.TaxiRankService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -32,6 +34,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaxiRankController {
 
     private final TaxiRankService taxiRankService;
+
+    private final TaxiRankResolutionService
+            taxiRankResolutionService;
 
     @PostMapping
     public ResponseEntity<
@@ -116,6 +121,23 @@ public class TaxiRankController {
                 ApiResponse.success(
                         "Taxi ranks retrieved successfully",
                         response
+                )
+        );
+    }
+
+    @GetMapping("/resolve")
+    public ResponseEntity<
+            ApiResponse<ResolvedTaxiRankResponse>
+            > resolveTaxiRank(
+            @RequestParam
+            @Positive(message = "Area ID must be positive")
+            Long areaId
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Taxi rank resolved successfully",
+                        taxiRankResolutionService
+                                .resolveTaxiRank(areaId)
                 )
         );
     }
