@@ -4,6 +4,7 @@ import com.mzansiconnect.backend.entity.Fare;
 import com.mzansiconnect.backend.enums.FareType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -33,6 +34,13 @@ public interface FareRepository
     @EntityGraph(attributePaths = "route")
     Page<Fare> findByFareTypeAndActiveTrue(
             FareType fareType,
+            Pageable pageable
+    );
+
+    @Override
+    @EntityGraph(attributePaths = "route")
+    Page<Fare> findAll(
+            Specification<Fare> specification,
             Pageable pageable
     );
 
