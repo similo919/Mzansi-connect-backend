@@ -17,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -36,6 +37,9 @@ public class SecurityConfig {
 
     private final JwtAccessDeniedHandler
             accessDeniedHandler;
+
+    private final CorsConfigurationSource
+            corsConfigurationSource;
 
     @Bean
     public DaoAuthenticationProvider
@@ -68,6 +72,10 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
+                .cors(cors -> cors.configurationSource(
+                        corsConfigurationSource
+                ))
+
                 .csrf(csrf -> csrf.disable())
 
                 .sessionManagement(
@@ -118,6 +126,31 @@ public class SecurityConfig {
                                         .authenticated()
 
                                         .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/reviews/route/**"
+                                        )
+                                        .permitAll()
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/areas/**"
+                                        )
+                                        .permitAll()
+
+                                        .requestMatchers(
+                                                "/api/admin/reviews/**",
+                                                "/api/admin/support-tickets/**"
+                                        )
+                                        .hasAuthority("ROLE_ADMIN")
+
+                                        .requestMatchers(
+                                                "/api/saved-routes/**",
+                                                "/api/reviews/**",
+                                                "/api/support-tickets/**"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
                                                 "/api/area-rank-assignments/**"
                                         )
                                         .hasAuthority("ROLE_ADMIN")
@@ -151,7 +184,6 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
-                                                "/api/areas/**",
                                                 "/api/taxi-ranks/**",
                                                 "/api/routes/**",
                                                 "/api/fares/**"
@@ -170,3 +202,6 @@ public class SecurityConfig {
         return http.build();
     }
 }
+
+
+

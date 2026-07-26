@@ -19,7 +19,12 @@ import com.mzansiconnect.backend.repository.TaxiRankRepository;
 import com.mzansiconnect.backend.service.impl.RouteServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -321,6 +326,104 @@ class RouteServiceImplTest {
     }
 
     @Test
+    void shouldReturnParentRouteWhenRequestedStartingAreaHasNoRoute() {
+        Area diepkloof = createArea(
+                6L,
+                "Diepkloof"
+        );
+
+        Area diepkloofZoneOne = createArea(
+                42L,
+                "Diepkloof Zone 1"
+        );
+        diepkloofZoneOne.setParentArea(diepkloof);
+
+        Area johannesburgCbd = createArea(
+                67L,
+                "Johannesburg CBD"
+        );
+
+        Route inheritedRoute = Route.builder()
+                .id(200L)
+                .routeCode("DEV-C-6-67")
+                .routeName("Diepkloof to Johannesburg CBD")
+                .startingArea(diepkloof)
+                .destinationArea(johannesburgCbd)
+                .departureRank(
+                        createRank(
+                                30L,
+                                "Diepkloof Taxi Rank",
+                                diepkloof
+                        )
+                )
+                .arrivalRank(
+                        createRank(
+                                40L,
+                                "Johannesburg CBD Taxi Rank",
+                                johannesburgCbd
+                        )
+                )
+                .routeType(RouteType.CONNECTING)
+                .estimatedDurationMinutes(35)
+                .estimatedWaitingMinutes(10)
+                .operatesWeekdays(true)
+                .operatesWeekends(true)
+                .verificationStatus(
+                        VerificationStatus.UNVERIFIED
+                )
+                .locallyVerified(false)
+                .active(true)
+                .build();
+
+        when(
+                areaRepository.findByIdAndActiveTrue(42L)
+        ).thenReturn(Optional.of(diepkloofZoneOne));
+
+        when(
+                routeRepository.findAll(
+                        org.mockito.ArgumentMatchers
+                                .<Specification<Route>>any(),
+                        any(Pageable.class)
+                )
+        ).thenReturn(
+                Page.empty(),
+                new PageImpl<>(List.of(inheritedRoute))
+        );
+
+        Page<RouteResponse> result =
+                routeService.getRoutes(
+                        null,
+                        42L,
+                        67L,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        20,
+                        "routeName",
+                        "asc"
+                );
+
+        RouteResponse response =
+                result.getContent().getFirst();
+
+        assertEquals("DEV-C-6-67", response.getRouteCode());
+        assertEquals(
+                "Diepkloof Zone 1",
+                response.getRequestedStartingArea().getName()
+        );
+        assertEquals(
+                "Diepkloof",
+                response.getRouteStartingArea().getName()
+        );
+        assertTrue(response.getInheritedFromParent());
+    }
+
+    @Test
     void shouldDeactivateRouteWithoutActiveFares() {
         Route route = createRouteEntity();
 
@@ -447,4 +550,5 @@ class RouteServiceImplTest {
                 .locallyVerified(false)
                 .build();
     }
+
 }

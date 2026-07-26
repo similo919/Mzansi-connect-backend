@@ -173,6 +173,61 @@ public class RouteServiceImpl implements RouteService {
                         operatesWeekends
                 );
 
+        if (startingAreaId != null
+                && destinationAreaId != null) {
+            Area requestedStartingArea =
+                    getActiveArea(startingAreaId);
+
+            Page<Route> exactRoutes =
+                    routeRepository.findAll(
+                            specification,
+                            pageable
+                    );
+
+            if (exactRoutes.getTotalElements() > 0) {
+                return exactRoutes.map(
+                        route -> routeMapper.toResponse(
+                                route,
+                                requestedStartingArea,
+                                false
+                        )
+                );
+            }
+
+            Page<Route> inheritedRoutes =
+                    findInheritedStartingAreaRoutes(
+                            requestedStartingArea,
+                            search,
+                            destinationAreaId,
+                            departureRankId,
+                            arrivalRankId,
+                            routeType,
+                            verificationStatus,
+                            locallyVerified,
+                            operatesWeekdays,
+                            operatesWeekends,
+                            pageable
+                    );
+
+            if (inheritedRoutes.getTotalElements() > 0) {
+                return inheritedRoutes.map(
+                        route -> routeMapper.toResponse(
+                                route,
+                                requestedStartingArea,
+                                true
+                        )
+                );
+            }
+
+            return exactRoutes.map(
+                    route -> routeMapper.toResponse(
+                            route,
+                            requestedStartingArea,
+                            false
+                    )
+            );
+        }
+
         return routeRepository
                 .findAll(specification, pageable)
                 .map(routeMapper::toResponse);
@@ -547,6 +602,58 @@ public class RouteServiceImpl implements RouteService {
                     predicates.toArray(new Predicate[0])
             );
         };
+    }
+
+    private Page<Route> findInheritedStartingAreaRoutes(
+            Area requestedStartingArea,
+            String search,
+            Long destinationAreaId,
+            Long departureRankId,
+            Long arrivalRankId,
+            RouteType routeType,
+            VerificationStatus verificationStatus,
+            Boolean locallyVerified,
+            Boolean operatesWeekdays,
+            Boolean operatesWeekends,
+            Pageable pageable
+    ) {
+        Area candidateStartingArea =
+                requestedStartingArea.getParentArea();
+
+        while (candidateStartingArea != null) {
+            if (Boolean.TRUE.equals(
+                    candidateStartingArea.getActive()
+            )) {
+                Specification<Route> inheritedSpecification =
+                        createSpecification(
+                                search,
+                                candidateStartingArea.getId(),
+                                destinationAreaId,
+                                departureRankId,
+                                arrivalRankId,
+                                routeType,
+                                verificationStatus,
+                                locallyVerified,
+                                operatesWeekdays,
+                                operatesWeekends
+                        );
+
+                Page<Route> inheritedRoutes =
+                        routeRepository.findAll(
+                                inheritedSpecification,
+                                pageable
+                        );
+
+                if (inheritedRoutes.getTotalElements() > 0) {
+                    return inheritedRoutes;
+                }
+            }
+
+            candidateStartingArea =
+                    candidateStartingArea.getParentArea();
+        }
+
+        return Page.empty(pageable);
     }
 
     private String normalizeRouteCode(String routeCode) {

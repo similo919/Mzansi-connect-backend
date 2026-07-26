@@ -23,6 +23,15 @@ public class RouteResponse {
 
     private AreaSummaryResponse startingArea;
     private AreaSummaryResponse destinationArea;
+    private AreaSummaryResponse requestedStartingArea;
+    private AreaSummaryResponse routeStartingArea;
+    private Boolean inheritedFromParent;
+
+    private Long requestedStartingAreaId;
+    private String requestedStartingAreaName;
+    private Long actualRouteStartingAreaId;
+    private String actualRouteStartingAreaName;
+    private Boolean parentFallbackUsed;
 
     private TaxiRankSummaryResponse departureRank;
     private TaxiRankSummaryResponse arrivalRank;

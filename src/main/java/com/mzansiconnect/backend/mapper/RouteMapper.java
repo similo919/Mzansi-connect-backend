@@ -147,6 +147,18 @@ public class RouteMapper {
     }
 
     public RouteResponse toResponse(Route route) {
+        return toResponse(
+                route,
+                route.getStartingArea(),
+                false
+        );
+    }
+
+    public RouteResponse toResponse(
+            Route route,
+            Area requestedStartingArea,
+            boolean inheritedFromParent
+    ) {
         return RouteResponse.builder()
                 .id(route.getId())
                 .routeCode(route.getRouteCode())
@@ -155,6 +167,34 @@ public class RouteMapper {
                 .destinationArea(
                         toAreaSummary(route.getDestinationArea())
                 )
+                .requestedStartingArea(
+                        toAreaSummary(requestedStartingArea)
+                )
+                .routeStartingArea(
+                        toAreaSummary(route.getStartingArea())
+                )
+                .inheritedFromParent(inheritedFromParent)
+                .requestedStartingAreaId(
+                        requestedStartingArea == null
+                                ? null
+                                : requestedStartingArea.getId()
+                )
+                .requestedStartingAreaName(
+                        requestedStartingArea == null
+                                ? null
+                                : requestedStartingArea.getName()
+                )
+                .actualRouteStartingAreaId(
+                        route.getStartingArea() == null
+                                ? null
+                                : route.getStartingArea().getId()
+                )
+                .actualRouteStartingAreaName(
+                        route.getStartingArea() == null
+                                ? null
+                                : route.getStartingArea().getName()
+                )
+                .parentFallbackUsed(inheritedFromParent)
                 .departureRank(
                         toRankSummary(route.getDepartureRank())
                 )
